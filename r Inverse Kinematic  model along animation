@@ -1,0 +1,86 @@
+% Robot Parameters 
+L1 = 1; % Height of the base (z-offset) 
+L2 = 2; % Length of the second link 
+L3 = 1; % Length of the third link 
+% Initial Joint Angles (user-defined) 
+theta1_0 = pi/4;  % Initial value for theta1 
+theta2_0 = pi/6;  % Initial value for theta2 
+theta3_0 = pi/3;  % Initial value for theta3 
+% Desired End-Effector Final Position 
+x_d = L2; % X position of the end-effector (fixed for simplicity) 
+y_d = 0;  % Y position of the end-effector (stationary in final position) 
+z_d = L1 + L2; % Z position of the end-effector (fixed) 
+% Time for the trajectory 
+T = 5; % Total time in seconds 
+t_trajectory = linspace(0, T, 100); % Time vector for trajectory 
+% Inverse Kinematics to Find Final Joint Angles 
+[theta1_final, theta2_final, theta3_final] = inverse_kinematics(x_d, y_d, z_d, 
+L1, L2, L3); 
+% Cubic Polynomial Trajectory Calculation 
+theta1_trajectory = theta1_0 + (theta1_final - theta1_0) * 
+(3*(t_trajectory/T).^2 - 2*(t_trajectory/T).^3); % Joint 1 trajectory 
+theta2_trajectory = theta2_0 + (theta2_final - theta2_0) * 
+(3*(t_trajectory/T).^2 - 2*(t_trajectory/T).^3); % Joint 2 trajectory 
+theta3_trajectory = theta3_0 + (theta3_final - theta3_0) * 
+(3*(t_trajectory/T).^2 - 2*(t_trajectory/T).^3); % Joint 3 trajectory 
+% Initialize the figure 
+figure; 
+hold on; 
+grid on; 
+axis equal; 
+xlabel('X-axis'); 
+ylabel('Y-axis'); 
+ 
+zlabel('Z-axis'); 
+title('End-Effector Trajectory with Discrete Points'); 
+xlim([-L2-L3, L2+L3]); 
+ylim([-L2-L3, L2+L3]); 
+zlim([0, L1 + L2 + L3]); 
+% Set isometric view 
+view(45, 35.26); % Isometric view: azimuth=45°, elevation=35.26° 
+% Initialize the robot link plot 
+link1 = plot3([0, 0], [0, 0], [0, L1], 'k-', 'LineWidth', 2); % Base link 
+link2 = plot3([0, 0], [0, 0], [L1, L1], 'r-', 'LineWidth', 2); % First link 
+link3 = plot3([0, 0], [0, 0], [L1, L1], 'g-', 'LineWidth', 2); % Second link 
+end_effector = plot3(0, 0, 0, 'bo', 'MarkerSize', 1, 'MarkerFaceColor', 'b'); 
+% End-effector 
+% Simulate the motion along the trajectory 
+for i = 1:length(t_trajectory) 
+   % Get the joint angles at time t_trajectory(i) 
+   theta1 = theta1_trajectory(i); 
+   theta2 = theta2_trajectory(i); 
+   theta3 = theta3_trajectory(i); 
+   % Forward Kinematics (to compute the robot's current position) 
+   x1 = 0; y1 = 0; z1 = L1; % Base to Joint 2 
+   x2 = L2 * cos(theta2) * cos(theta1); 
+   y2 = L2 * cos(theta2) * sin(theta1); 
+   z2 = L1 + L2 * sin(theta2); % Joint 2 to Joint 3 
+   x3 = x2 + L3 * cos(theta2 + theta3) * cos(theta1); 
+   y3 = y2 + L3 * cos(theta2 + theta3) * sin(theta1); 
+   z3 = z2 + L3 * sin(theta2 + theta3); % End-effector 
+   % Update the robot links 
+   set(link1, 'XData', [0, x1], 'YData', [0, y1], 'ZData', [0, z1]); 
+   set(link2, 'XData', [x1, x2], 'YData', [y1, y2], 'ZData', [z1, z2]); 
+   set(link3, 'XData', [x2, x3], 'YData', [y2, y3], 'ZData', [z2, z3]); 
+   set(end_effector, 'XData', x3, 'YData', y3, 'ZData', z3); 
+   % Plot the current end-effector position 
+   plot3(x3, y3, z3, 'ro', 'MarkerSize', 3, 'MarkerFaceColor', 'r'); % Red 
+point at each end-effector position 
+   % Pause for smooth animation 
+   pause(0.05); 
+end 
+% Finalize the plot with labels 
+legend('Z-axis', 'Robot Links', 'End-Effector', 'End-Effector Path'); 
+hold off; 
+% Inverse Kinematics Function 
+function [theta1, theta2, theta3] = inverse_kinematics(x, y, z, L1, L2, L3) 
+   % Solve for theta1 
+   theta1 = atan2(y, x); 
+   % Solve for theta2 and theta3 using the geometry of the manipulator 
+   r = sqrt(x^2 + y^2) - L3 * cos(atan2(y, x)); % Projection on the xy-plane 
+   % Compute theta2 and theta3 using the law of cosines 
+   D = (r^2 + (z - L1)^2 - L2^2 - L3^2) / (2 * L2 * L3); 
+theta3 = acos(D); % Joint 3 angle 
+theta2 = atan2(z - L1, r) - atan2(L3 * sin(theta3), L2 + L3 * cos(theta3)); 
+% Joint 2 angle 
+end
