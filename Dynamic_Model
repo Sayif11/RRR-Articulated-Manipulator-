@@ -1,0 +1,170 @@
+Dynamic Model: 
+(Code) 
+ 
+clc; 
+clear all; 
+% Define symbolic variables 
+syms a2 a3 th1 th2 th3 d1 m1 m2 m3 th1dot th2dot th3dot th1ddot th2ddot th3ddot 
+real; 
+% DH Table Definition 
+dh_table = [0      0   th1  d1;  % Link 1 
+           1.5*pi 0   th2  0;  % Link 2 
+           0      a2  th3  0;  % Link 3 
+           0      a3  0    0]; % Link 4 
+% Preallocate Transformation Matrices 
+trfm_mat = sym(zeros(4, 4, size(dh_table, 1))); 
+% Transformation Matrix Construction Loop 
+for i = 1:size(dh_table, 1) 
+   % Extract DH parameters for each row 
+   alpha = dh_table(i, 1); 
+   a = dh_table(i, 2); 
+   theta = dh_table(i, 3); 
+   d = dh_table(i, 4); 
+   
+   % Construct transformation matrix 
+   trfm_mat(:, :, i) = simplify([cos(theta) -sin(theta) 0 a; 
+                                 sin(theta)*cos(alpha) cos(theta)*cos(alpha) -sin(alpha) -d*sin(alpha); 
+                                 sin(theta)*sin(alpha) cos(theta)*sin(alpha) 
+cos(alpha) d*cos(alpha); 
+                                 0 0 0 1]); 
+end 
+% Extract Transformation Matrices 
+T0_1 = simplify(trfm_mat(:, :, 1)); 
+T1_2 = simplify(trfm_mat(:, :, 2)); 
+T2_3 = simplify(trfm_mat(:, :, 3)); 
+T3_4 = simplify(trfm_mat(:, :, 4)); 
+% Compute Combined Transformations 
+T0_2 = simplify(T0_1 * T1_2); 
+T0_3 = simplify(T0_2 * T2_3); 
+T0_4 = simplify(T0_3 * T3_4); 
+% Display Results 
+disp('Transformation Matrices:'); 
+disp('T0_1 = '); disp(T0_1); 
+disp('T1_2 = '); disp(T1_2); 
+disp('T2_3 = '); disp(T2_3); 
+disp('T3_4 = '); disp(T3_4); 
+disp('Combined Transformation Matrices:'); 
+disp('T0_2 = '); disp(T0_2); 
+disp('T0_3 = '); disp(T0_3); 
+disp('T0_4 = '); disp(T0_4); 
+% Extract Rotation Matrices and Positions 
+R0_1 = T0_1(1:3, 1:3); 
+R1_2 = T1_2(1:3, 1:3); 
+R2_3 = T2_3(1:3, 1:3); 
+R3_4 = T3_4(1:3, 1:3); 
+R0_4 = T0_4(1:3, 1:3); 
+P0_1 = T0_1(1:3, 4); 
+P1_2 = T1_2(1:3, 4); 
+P2_3 = T2_3(1:3, 4); 
+P3_4 = T3_4(1:3, 4); 
+P0_4 = T0_4(1:3, 4); 
+disp('End-Effector Position (P0_4):'); 
+disp(P0_4); 
+%% Jacobian Matrix 
+J=[diff(P0_4(1),th1) diff(P0_4(1),th2) diff(P0_4(1),th3); 
+diff(P0_4(2),th1) diff(P0_4(2),th2) diff(P0_4(2),th3); 
+diff(P0_4(3),th1) diff(P0_4(3),th2) diff(P0_4(3),th3)]; 
+J=simplify(J); 
+disp('Jacobian Matrix:'); 
+disp(J); 
+% Angular Velocity Calculations 
+w0 = [0; 0; 0]; 
+w1 = simplify(R0_1' * w0 + [0; 0; th1dot]); 
+w2 = simplify(R1_2' * w1 + [0; 0; th2dot]); 
+w3 = simplify(R2_3' * w2 + [0; 0; th3dot]); 
+w4 = simplify(R3_4' * w3); 
+w0_4 = R0_4 * w4; 
+disp('Angular Velocities:'); 
+disp('w1 = '); disp(w1); 
+disp('w2 = '); disp(w2); 
+disp('w3 = '); disp(w3); 
+disp('w4 = '); disp(w4); 
+disp('w0_4 = '); disp(w0_4); 
+% Angular Acceleration Calculations 
+alpha0 = [0; 0; 0]; 
+alpha1 = simplify(R0_1' * (alpha0 + cross(w0, [0; 0; th1dot])) + [0; 0; 
+th1ddot]); 
+alpha2 = simplify(R1_2' * (alpha1 + cross(w1, [0; 0; th2dot])) + [0; 0; 
+th2ddot]); 
+alpha3 = simplify(R2_3' * (alpha2 + cross(w2, [0; 0; th3dot])) + [0; 0; 
+th3ddot]); 
+disp('Angular Accelerations:'); 
+disp('alpha1 = '); disp(alpha1); 
+disp('alpha2 = '); disp(alpha2); 
+disp('alpha3 = '); disp(alpha3); 
+% Linear Velocity Calculations 
+v0 = [0; 0; 0]; 
+v1 = simplify(R0_1' * (v0 + cross(w0, P0_1))); 
+v2 = simplify(R1_2' * (v1 + cross(w1, P1_2))); 
+v3 = simplify(R2_3' * (v2 + cross(w2, P2_3))); 
+v4 = simplify(R3_4' * (v3 + cross(w3, P3_4))); 
+v0_4 = simplify(R0_4 * w4); 
+disp('Linear Velocities:'); 
+disp('v1 = '); disp(v1); 
+disp('v2 = '); disp(v2); 
+disp('v3 = '); disp(v3); 
+disp('v4 = '); disp(v4); 
+disp('v0_4 = '); disp(v0_4); 
+% Linear Acceleration Calculations 
+acc0 = [0; 0; 0]; 
+acc1 = simplify(R0_1' * (acc0 + cross(alpha0, P0_1) + cross(w0, cross(w0, 
+P0_1)))); 
+acc2 = simplify(R1_2' * (acc1 + cross(alpha1, P1_2) + cross(w1, cross(w1, 
+P1_2)))); 
+acc3 = simplify(R2_3' * (acc2 + cross(alpha2, P2_3) + cross(w2, cross(w2, 
+P2_3)))); 
+disp('Linear Accelerations:'); 
+disp('acc1 = '); disp(acc1); 
+disp('acc2 = '); disp(acc2); 
+disp('acc3 = '); disp(acc3); 
+% Center of Mass Locations 
+P1_c1 = [0; 0; d1/2]; 
+P2_c2 = [a2/2; 0; 0]; 
+P3_c3 = [a3/2; 0; 0]; 
+disp('Center of Mass Locations:'); 
+disp('P1_c1 = '); disp(P1_c1); 
+disp('P2_c2 = '); disp(P2_c2); 
+disp('P3_c3 = '); disp(P3_c3); 
+%% Inertial Accelerations 
+acc1_c1 = acc1 + cross(alpha1,P1_c1) + cross(w1,cross(w1,P1_c1)); 
+acc2_c2 = acc2 + cross(alpha2,P2_c2) + cross(w2,cross(w2,P2_c2)); 
+acc3_c3 = acc3 + cross(alpha3,P3_c3) + cross(w3,cross(w3,P3_c3)); 
+disp('Inertial Accelerations:'); 
+disp('acc1_c1 = '); disp(acc1_c1); 
+disp('acc2_c2 = '); disp(acc2_c2); 
+disp('acc3_c3 = '); disp(acc3_c3); 
+%% Inertial Forces 
+syms m1 m2 m3 real 
+F1 = m1*acc1_c1; 
+F2 = m2*acc2_c2; 
+F3 = m3*acc3_c3; 
+disp('Inertial Forces:'); 
+disp('F1 = '); disp(F1); 
+disp('F2 = '); disp(F2); 
+disp('F3 = '); disp(F3); 
+%% Forces at the joints 
+f4 = [0;0;0]; 
+f3 = R3_4 * f4 + F3; 
+f2 = R2_3 * f3 + F2; 
+f1 = R1_2 * f2 + F1; 
+disp('Forces at the joints:'); 
+disp('f3 = '); disp(f3); 
+disp('f2 = '); disp(f2); 
+disp('f1 = '); disp(f1); 
+%% Moments at the joints 
+n4 = [0;0;0]; 
+n3 = R3_4*n4 + cross(P3_c3,F3) + cross(P3_c3, (R3_4*f4)); 
+n2 = R2_3*n3 + cross(P2_c2,F2) + cross(P2_c2, (R2_3*f3)); 
+n1 = R1_2*n2 + cross(P1_c1,F1) + cross(P1_c1, (R1_2*f2)); 
+disp('Moments at the joints:'); 
+disp('n3 = '); disp(n3); 
+disp('n2 = '); disp(n2); 
+disp('n1 = '); disp(n1); 
+%% Joint Torque and Force 
+tau1 = [0 0 1] * n1; 
+tau2 = [0 0 1] * n2; 
+tau3 = [0 0 1] * f3; %joint force 
+disp('Joint Torque and Force:'); 
+disp('tau1 = '); disp(tau1); 
+disp('tau2 = '); disp(tau2); 
+disp('tau3 = '); disp(tau3); 
